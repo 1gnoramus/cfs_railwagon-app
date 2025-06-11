@@ -1,4 +1,7 @@
+import 'package:cfs_railwagon/models/wagon_model.dart';
+import 'package:cfs_railwagon/services/providers/wagon_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class WagonCard extends StatefulWidget {
   final String number;
@@ -10,6 +13,7 @@ class WagonCard extends StatefulWidget {
   final String cargo;
   final String operation;
   final String leftDistance;
+  final String group;
 
   const WagonCard({
     super.key,
@@ -22,6 +26,7 @@ class WagonCard extends StatefulWidget {
     required this.cargo,
     required this.operation,
     required this.leftDistance,
+    required this.group,
   });
 
   @override
@@ -30,6 +35,74 @@ class WagonCard extends StatefulWidget {
 
 class _WagonCardState extends State<WagonCard> {
   bool _expanded = false;
+  late TextEditingController groupController;
+
+  late String group;
+
+  @override
+  void initState() {
+    super.initState();
+    group = widget.group;
+    groupController = TextEditingController(text: widget.group);
+  }
+
+  @override
+  void dispose() {
+    groupController.dispose();
+    super.dispose();
+  }
+
+  Future<void> editWagon() async {
+    groupController.text = group;
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Редактировать вагон"),
+          content: TextField(
+            controller: groupController,
+            decoration: const InputDecoration(labelText: 'Группа'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, groupController.text),
+              child: const Text('Сохранить'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result != null && result.isNotEmpty) {
+      final updatedWagon = Wagon(
+        number: widget.number,
+        from: widget.from,
+        to: widget.to,
+        lastStation: widget.lastStation,
+        lastUpdate: widget.lastUpdate,
+        departureTime: widget.departureTime,
+        cargo: widget.cargo,
+        operation: widget.operation,
+        leftDistance: widget.leftDistance,
+        group: result,
+      );
+
+      final wagonProvider = context.read<WagonProvider>();
+      await wagonProvider.editWagon(updatedWagon);
+
+      setState(() {
+        group = result;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Группа обновлена')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +122,17 @@ class _WagonCardState extends State<WagonCard> {
                         fontWeight: FontWeight.bold,
                         color: const Color(0xFF002E5D),
                       )),
+              Text('Группа: ${group}',
+                  style: const TextStyle(fontStyle: FontStyle.italic)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  InkWell(
+                    onTap: () => editWagon(),
+                    child: Icon(Icons.edit, size: 20),
+                  )
+                ],
+              ),
               const SizedBox(height: 8),
               Text('Маршрут: ${widget.from} → ${widget.to}'),
               const SizedBox(height: 4),

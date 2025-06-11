@@ -1,31 +1,8 @@
 import 'package:cfs_railwagon/components/wagon_card.dart';
+import 'package:cfs_railwagon/models/wagon_model.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-
-class Wagon {
-  final String number;
-  final String from;
-  final String to;
-  final String lastStation;
-  final String lastUpdate;
-  final String departureTime;
-  final String cargo;
-  final String operation;
-  final String leftDistance;
-
-  Wagon({
-    required this.number,
-    required this.from,
-    required this.to,
-    required this.lastStation,
-    required this.lastUpdate,
-    required this.departureTime,
-    required this.cargo,
-    required this.operation,
-    required this.leftDistance,
-  });
-}
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -320,6 +297,7 @@ class _MainScreenState extends State<MainScreen> {
                           cargo: wagon.cargo,
                           operation: wagon.operation,
                           leftDistance: wagon.leftDistance,
+                          group: wagon.group,
                         ),
                       );
                     },

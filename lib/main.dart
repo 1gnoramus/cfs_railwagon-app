@@ -1,9 +1,14 @@
 import 'package:cfs_railwagon/constants/theme_data.dart';
+import 'package:cfs_railwagon/services/providers/wagon_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'screens/welcome_screen.dart';
 
 void main() {
-  runApp(const WagonApp());
+  runApp(ChangeNotifierProvider(
+    create: (_) => WagonProvider()..loadWagons(),
+    child: const WagonApp(),
+  ));
 }
 
 class WagonApp extends StatelessWidget {
