@@ -22,6 +22,8 @@ class _MainScreenState extends State<MainScreen> {
   String? _selectedFromStation;
   String? _selectedToStation;
   String? _selectedCurrentStation;
+  String? _selectedGroup;
+  bool _isSearchFocused = false;
 
   @override
   void initState() {
@@ -34,6 +36,18 @@ class _MainScreenState extends State<MainScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _selectedCurrentStation = null;
+      _selectedFromStation = null;
+      _selectedToStation = null;
+      _selectedGroup = null;
+      _searchController.clear();
+      _isSearchFocused = false;
+    });
+    _applyFilters();
   }
 
   void _applyFilters() {
@@ -52,8 +66,14 @@ class _MainScreenState extends State<MainScreen> {
 
         final matchesCurrent = _selectedCurrentStation == null ||
             wagon.lastStation == _selectedCurrentStation;
+        final matchesGroup =
+            _selectedGroup == null || wagon.group == _selectedGroup;
 
-        return matchesSearch && matchesFrom && matchesTo && matchesCurrent;
+        return matchesSearch &&
+            matchesFrom &&
+            matchesTo &&
+            matchesCurrent &&
+            matchesGroup;
       }).toList();
     });
   }
@@ -99,6 +119,7 @@ class _MainScreenState extends State<MainScreen> {
         setState(() {
           wagons = newWagons;
           filteredWagons = newWagons;
+          _resetFilters();
         });
       } else {
         throw Exception('Ошибка сервера: ${response.statusCode}');
@@ -115,42 +136,30 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  Widget _buildSearchField() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          labelText: 'Поиск по номеру вагона',
-          prefixIcon: const Icon(Icons.search),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10.0),
-          ),
-          filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceVariant,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterDropdown({
+  Widget _buildExpandingFilterDropdown({
     required String label,
     required List<String> options,
     required String? value,
     required ValueChanged<String?> onChanged,
+    bool isExpanded = false,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: isExpanded ? 220 : 150,
+      margin: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
       child: DropdownButtonFormField<String>(
         isExpanded: true,
+        onTap: () => setState(() {}),
         decoration: InputDecoration(
           labelText: label,
+          isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10.0),
+            borderRadius: BorderRadius.circular(8.0),
           ),
           filled: true,
           fillColor: Theme.of(context).colorScheme.surfaceVariant,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
         ),
         value: value,
         items: [
@@ -159,13 +168,143 @@ class _MainScreenState extends State<MainScreen> {
             child: Text(
               'Все',
               style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
-          ...options.map((station) {
+          ...options.map((item) {
             return DropdownMenuItem(
-              value: station,
-              child: Text(station),
+              value: item,
+              child: Text(
+                item,
+                style: const TextStyle(fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          }).toList(),
+        ],
+        onChanged: (value) {
+          onChanged(value);
+          setState(() {});
+        },
+      ),
+    );
+  }
+
+  Widget _buildFiltersSection() {
+    final fromStations = wagons.map((w) => w.from).toSet().toList();
+    final toStations = wagons.map((w) => w.to).toSet().toList();
+    final currentStations = wagons.map((w) => w.lastStation).toSet().toList();
+    final groups =
+        wagons.map((w) => w.group).where((g) => g != null).toSet().toList();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+      child: Column(
+        children: [
+          // Первая строка - поиск и 2 фильтра
+          Row(
+            children: [
+              _buildSearchField(),
+              _buildCompactFilterDropdown(
+                label: 'Отправление',
+                options: fromStations,
+                value: _selectedFromStation,
+                onChanged: (value) {
+                  setState(() => _selectedFromStation = value);
+                  _applyFilters();
+                },
+              ),
+              _buildCompactFilterDropdown(
+                label: 'Назначение',
+                options: toStations,
+                value: _selectedToStation,
+                onChanged: (value) {
+                  setState(() => _selectedToStation = value);
+                  _applyFilters();
+                },
+              ),
+            ],
+          ),
+
+          // Вторая строка - оставшиеся фильтры
+          Row(
+            children: [
+              _buildCompactFilterDropdown(
+                label: 'Текущая станция',
+                options: currentStations,
+                value: _selectedCurrentStation,
+                onChanged: (value) {
+                  setState(() => _selectedCurrentStation = value);
+                  _applyFilters();
+                },
+              ),
+              _buildCompactFilterDropdown(
+                label: 'Группа',
+                options: groups.cast<String>(),
+                value: _selectedGroup,
+                onChanged: (value) {
+                  setState(() => _selectedGroup = value);
+                  _applyFilters();
+                },
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.filter_alt_off, size: 20),
+                tooltip: 'Сбросить фильтры',
+                onPressed: _resetFilters,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactFilterDropdown({
+    required String label,
+    required List<String> options,
+    required String? value,
+    required ValueChanged<String?> onChanged,
+    double width = 100,
+  }) {
+    return Container(
+      width: width,
+      margin: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
+      child: DropdownButtonFormField<String>(
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          filled: true,
+          fillColor: Theme.of(context).colorScheme.surfaceVariant,
+        ),
+        value: value,
+        items: [
+          DropdownMenuItem(
+            value: null,
+            child: Text(
+              'Все',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          ...options.map((item) {
+            return DropdownMenuItem(
+              value: item,
+              child: Text(
+                item,
+                style: const TextStyle(fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
             );
           }).toList(),
         ],
@@ -174,55 +313,30 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildFiltersRow() {
-    final fromStations = wagons.map((w) => w.from).toSet().toList();
-    final toStations = wagons.map((w) => w.to).toSet().toList();
-    final currentStations = wagons.map((w) => w.lastStation).toSet().toList();
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 220,
-            child: _buildFilterDropdown(
-              label: 'Станция отправления',
-              options: fromStations,
-              value: _selectedFromStation,
-              onChanged: (value) {
-                setState(() => _selectedFromStation = value);
-                _applyFilters();
-              },
+  Widget _buildSearchField() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: _isSearchFocused ? 150 : 50,
+      margin: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
+      child: Focus(
+        onFocusChange: (hasFocus) {
+          setState(() {
+            _isSearchFocused = hasFocus;
+          });
+        },
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            labelText: 'Поиск вагона',
+            isDense: true,
+            prefixIcon: const Icon(Icons.search, size: 20),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8.0),
             ),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surfaceVariant,
           ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 220,
-            child: _buildFilterDropdown(
-              label: 'Станция назначения',
-              options: toStations,
-              value: _selectedToStation,
-              onChanged: (value) {
-                setState(() => _selectedToStation = value);
-                _applyFilters();
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 220,
-            child: _buildFilterDropdown(
-              label: 'Текущая станция',
-              options: currentStations,
-              value: _selectedCurrentStation,
-              onChanged: (value) {
-                setState(() => _selectedCurrentStation = value);
-                _applyFilters();
-              },
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -242,8 +356,7 @@ class _MainScreenState extends State<MainScreen> {
       ),
       body: Column(
         children: [
-          _buildSearchField(),
-          _buildFiltersRow(),
+          _buildFiltersSection(),
           if (isLoading)
             const LinearProgressIndicator()
           else if (errorMessage != null)

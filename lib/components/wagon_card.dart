@@ -52,6 +52,11 @@ class _WagonCardState extends State<WagonCard> {
     super.dispose();
   }
 
+  String _truncateText(String text, {int maxLength = 12}) {
+    if (text.length <= maxLength) return text;
+    return '${text.substring(0, maxLength)}...';
+  }
+
   Future<void> editWagon() async {
     groupController.text = group;
 
@@ -117,46 +122,165 @@ class _WagonCardState extends State<WagonCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('№ ${widget.number}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF002E5D),
-                      )),
-              Text('Группа: ${group}',
-                  style: const TextStyle(fontStyle: FontStyle.italic)),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Text('№ ${widget.number}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF002E5D),
+                          )),
                   InkWell(
                     onTap: () => editWagon(),
-                    child: Icon(Icons.edit, size: 20),
-                  )
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text('Маршрут: ${widget.from} → ${widget.to}'),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.location_on, color: Colors.red, size: 20),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      'Последняя станция: ${widget.lastStation}',
-                      style: const TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: const Icon(Icons.edit, size: 20),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text('Обновлено: ${widget.lastUpdate}'),
+              Text('Группа: ${group}',
+                  style: const TextStyle(fontStyle: FontStyle.italic)),
+
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Stack(
+                    children: [
+                      Container(
+                        height: 2,
+                        margin: const EdgeInsets.symmetric(vertical: 24),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          SizedBox(
+                            width: constraints.maxWidth * 0.3,
+                            child: Column(
+                              children: [
+                                const Icon(Icons.location_on,
+                                    color: Colors.blue, size: 20),
+                                const SizedBox(height: 4),
+                                Tooltip(
+                                  message: widget.from,
+                                  child: Text(
+                                    _truncateText(widget.from),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 10),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text(
+                                  _truncateText(widget.departureTime),
+                                  style: TextStyle(
+                                      fontSize: 10, color: Colors.grey[600]),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Текущее местоположение
+                          SizedBox(
+                            width: constraints.maxWidth * 0.3,
+                            child: Column(
+                              children: [
+                                const Icon(Icons.location_on,
+                                    color: Colors.red, size: 20),
+                                const SizedBox(height: 4),
+                                Tooltip(
+                                  message: widget.lastStation,
+                                  child: Text(
+                                    _truncateText(widget.lastStation),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red,
+                                        fontSize: 10),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text(
+                                  _truncateText(widget.lastUpdate),
+                                  style: TextStyle(
+                                      fontSize: 10, color: Colors.grey[600]),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Станция назначения
+                          SizedBox(
+                            width: constraints.maxWidth * 0.3,
+                            child: Column(
+                              children: [
+                                const Icon(
+                                  Icons.location_on,
+                                  color: Colors.green,
+                                  size: 20,
+                                ),
+                                const SizedBox(height: 4),
+                                Tooltip(
+                                  message: widget.to,
+                                  child: Text(
+                                    _truncateText(widget.to),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 10),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // Расстояние до конечной точки
+                      Positioned(
+                        right: constraints.maxWidth * 0.25,
+                        top: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Осталось: ${_truncateText(widget.leftDistance, maxLength: 15)}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.blue[800],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: 8),
+
+              // Дополнительная информация
               if (_expanded) ...[
                 const Divider(),
                 Text('Операция: ${widget.operation}'),
-                Text('Дата выхода вагона: ${widget.departureTime}'),
                 Text('Груз: ${widget.cargo}'),
               ],
             ],
