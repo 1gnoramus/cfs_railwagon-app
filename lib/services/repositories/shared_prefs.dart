@@ -8,7 +8,7 @@ class SharedPreferencesRepo {
 
   Future<List<Wagon>> loadWagons() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedWagonsInfo = prefs.getString('_key');
+    final savedWagonsInfo = prefs.getString('${_key}');
 
     if (savedWagonsInfo != null) {
       List decodedData = json.decode(savedWagonsInfo);
@@ -20,12 +20,14 @@ class SharedPreferencesRepo {
   Future<void> saveWagons(List<Wagon> wagonsInfo) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = wagonsInfo.map((item) => item.toJson()).toList();
-    await prefs.setString('_key', json.encode(jsonList));
+    await prefs.setString('${_key}', json.encode(jsonList));
   }
 
   Future<void> editWagon(Wagon updatedWagon) async {
     final prefs = await SharedPreferences.getInstance();
-    final savedWagonsInfo = prefs.getString('_key');
+    final savedWagonsInfo = prefs.getString('${_key}');
+    print('savedWagonsInfo');
+
     if (savedWagonsInfo != null) {
       List decoded = json.decode(savedWagonsInfo);
       List<Wagon> list = decoded.map((item) => Wagon.fromJson(item)).toList();
@@ -37,7 +39,7 @@ class SharedPreferencesRepo {
       if (index != -1) {
         list[index] = updatedWagon;
         await prefs.setString(
-            '_key', json.encode(list.map((item) => item.toJson()).toList()));
+            '${_key}', json.encode(list.map((item) => item.toJson()).toList()));
       }
     }
   }

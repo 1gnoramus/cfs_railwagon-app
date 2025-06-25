@@ -1,8 +1,11 @@
 import 'package:cfs_railwagon/components/wagon_card.dart';
 import 'package:cfs_railwagon/models/wagon_model.dart';
+import 'package:cfs_railwagon/services/providers/wagon_provider.dart';
+import 'package:cfs_railwagon/services/repositories/shared_prefs.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -16,6 +19,7 @@ class _MainScreenState extends State<MainScreen> {
   List<Wagon> filteredWagons = [];
   bool isLoading = false;
   String? errorMessage;
+  late WagonProvider wagonProvider;
 
   // Контроллеры для поиска и фильтров
   final TextEditingController _searchController = TextEditingController();
@@ -28,6 +32,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+
     downloadAndParseExcel();
     _searchController.addListener(_applyFilters);
   }
@@ -90,16 +95,22 @@ class _MainScreenState extends State<MainScreen> {
       );
 
       if (response.statusCode == 200) {
+        wagonProvider = Provider.of<WagonProvider>(context, listen: false);
+
         final excel = Excel.decodeBytes(response.bodyBytes);
         final sheet = excel.tables.values.first;
         final rows = sheet.rows;
+        await wagonProvider.loadWagons();
+        print(wagonProvider.wagons[0].group);
 
         final newWagons = <Wagon>[];
         for (int i = 1; i < rows.length; i++) {
           final row = rows[i];
           if (row[12]?.value.toString() == '57 platforms (CF&S Kazakhstan)') {
+            final number = row[0]?.value.toString() ?? 'Н/Д';
+
             newWagons.add(Wagon(
-              number: row[0]?.value.toString() ?? 'Н/Д',
+              number: number,
               from: row[2]?.value.toString() ?? 'Н/Д',
               to: row[3]?.value.toString() ?? 'Н/Д',
               lastStation: row[5]?.value.toString() ?? 'Н/Д',
@@ -112,6 +123,9 @@ class _MainScreenState extends State<MainScreen> {
                   row[7]?.value.toString() ?? 'Нет дополнительной информации',
               leftDistance:
                   row[8]?.value.toString() ?? 'Нет дополнительной информации',
+              group: wagonProvider.wagons
+                  .firstWhere((w) => w.number == number)
+                  .group,
             ));
           }
         }
@@ -119,6 +133,8 @@ class _MainScreenState extends State<MainScreen> {
         setState(() {
           wagons = newWagons;
           filteredWagons = newWagons;
+          wagonProvider.saveWagons(filteredWagons);
+
           _resetFilters();
         });
       } else {
@@ -208,20 +224,11 @@ class _MainScreenState extends State<MainScreen> {
             children: [
               _buildSearchField(),
               _buildCompactFilterDropdown(
-                label: 'Отправление',
-                options: fromStations,
-                value: _selectedFromStation,
+                label: 'Текущая станция',
+                options: currentStations,
+                value: _selectedCurrentStation,
                 onChanged: (value) {
-                  setState(() => _selectedFromStation = value);
-                  _applyFilters();
-                },
-              ),
-              _buildCompactFilterDropdown(
-                label: 'Назначение',
-                options: toStations,
-                value: _selectedToStation,
-                onChanged: (value) {
-                  setState(() => _selectedToStation = value);
+                  setState(() => _selectedCurrentStation = value);
                   _applyFilters();
                 },
               ),
@@ -232,20 +239,20 @@ class _MainScreenState extends State<MainScreen> {
           Row(
             children: [
               _buildCompactFilterDropdown(
-                label: 'Текущая станция',
-                options: currentStations,
-                value: _selectedCurrentStation,
+                label: 'Назначение',
+                options: toStations,
+                value: _selectedToStation,
                 onChanged: (value) {
-                  setState(() => _selectedCurrentStation = value);
+                  setState(() => _selectedToStation = value);
                   _applyFilters();
                 },
               ),
               _buildCompactFilterDropdown(
-                label: 'Группа',
-                options: groups.cast<String>(),
-                value: _selectedGroup,
+                label: 'Отправление',
+                options: fromStations,
+                value: _selectedFromStation,
                 onChanged: (value) {
-                  setState(() => _selectedGroup = value);
+                  setState(() => _selectedFromStation = value);
                   _applyFilters();
                 },
               ),
@@ -267,7 +274,7 @@ class _MainScreenState extends State<MainScreen> {
     required List<String> options,
     required String? value,
     required ValueChanged<String?> onChanged,
-    double width = 100,
+    double width = 150,
   }) {
     return Container(
       width: width,
@@ -316,7 +323,7 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildSearchField() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: _isSearchFocused ? 150 : 50,
+      width: _isSearchFocused ? 200 : 150,
       margin: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
       child: Focus(
         onFocusChange: (hasFocus) {
@@ -327,7 +334,7 @@ class _MainScreenState extends State<MainScreen> {
         child: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            labelText: 'Поиск вагона',
+            labelText: 'Номер вагона',
             isDense: true,
             prefixIcon: const Icon(Icons.search, size: 20),
             border: OutlineInputBorder(
@@ -341,11 +348,146 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  void _showAddWagonsToGroupDialog(BuildContext context) {
+    final List<Wagon> availableWagons =
+        wagons.where((w) => (w.group ?? '') != _selectedGroup).toList();
+
+    final Map<String, bool> selected = {
+      for (var w in availableWagons) w.number: false,
+    };
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Добавить вагоны в $_selectedGroup'),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 400,
+                child: ListView(
+                  children: availableWagons.map((wagon) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: selected[wagon.number]!
+                            ? Colors.lightBlue.withOpacity(0.2)
+                            : null,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: CheckboxListTile(
+                        title: Text(wagon.number),
+                        value: selected[wagon.number],
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selected[wagon.number] = value!;
+                          });
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Отмена'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final selectedWagons = selected.entries
+                        .where((e) => e.value)
+                        .map((e) => e.key)
+                        .toList();
+
+                    setState(() {
+                      for (var wagon in wagons) {
+                        if (selectedWagons.contains(wagon.number)) {
+                          wagon.group = _selectedGroup!;
+                        }
+                      }
+                      _applyFilters();
+                      wagonProvider.saveWagons(wagons);
+                    });
+
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Сохранить'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildGroupItems() {
+    final groupSet = wagons.map((w) => w.group).toSet();
+    final groups =
+        groupSet.where((g) => g != null && g.trim().isNotEmpty).toList();
+
+    final List<Widget> groupTiles = groups.map((group) {
+      return ListTile(
+        title: Text(group),
+        onTap: () {
+          Navigator.pop(context);
+          setState(() {
+            _selectedGroup = group;
+            _applyFilters();
+          });
+        },
+      );
+    }).toList();
+
+    return groupTiles;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: Drawer(
+        width: MediaQuery.of(context).size.width * 0.6,
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(color: Color(0xFF254A5D)),
+              child: SizedBox(
+                height: 20,
+                width: 20,
+                child: Image.asset(
+                  'lib/assets/logo.png',
+                  fit: BoxFit.scaleDown,
+                ),
+              ),
+            ),
+            ListTile(
+              title: const Text('Все вагоны'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() {
+                  _selectedGroup = null;
+                  _applyFilters();
+                });
+              },
+            ),
+            ExpansionTile(
+              title: const Text('Группы'),
+              children: _buildGroupItems(),
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(
         title: const Text("Список вагонов"),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -357,6 +499,25 @@ class _MainScreenState extends State<MainScreen> {
       body: Column(
         children: [
           _buildFiltersSection(),
+          if (_selectedGroup != null)
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Row(
+                children: [
+                  Text(
+                    'Группа: $_selectedGroup',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const Spacer(),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text('Добавить вагон'),
+                    onPressed: () => _showAddWagonsToGroupDialog(context),
+                  ),
+                ],
+              ),
+            ),
           if (isLoading)
             const LinearProgressIndicator()
           else if (errorMessage != null)

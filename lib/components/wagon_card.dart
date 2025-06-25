@@ -99,7 +99,6 @@ class _WagonCardState extends State<WagonCard> {
 
       final wagonProvider = context.read<WagonProvider>();
       await wagonProvider.editWagon(updatedWagon);
-
       setState(() {
         group = result;
       });
@@ -280,8 +279,148 @@ class _WagonCardState extends State<WagonCard> {
               // Дополнительная информация
               if (_expanded) ...[
                 const Divider(),
-                Text('Операция: ${widget.operation}'),
-                Text('Груз: ${widget.cargo}'),
+                Table(
+                  border: TableBorder.all(color: Colors.grey),
+                  columnWidths: const {
+                    0: FlexColumnWidth(5),
+                    1: FlexColumnWidth(5),
+                  },
+                  children: [
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(4),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Text('Станция отправления:',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(3),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(widget.from),
+                          ),
+                        )
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(4),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Text('Станция назначения:',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(3),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(widget.to),
+                          ),
+                        )
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(4),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Text('Текущая cnfywbz:',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(3),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(widget.lastStation),
+                          ),
+                        )
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(4),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Text('Осталось, км:',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(3),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text('${widget.leftDistance} км'),
+                          ),
+                        )
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(4),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Text('Дата выхода:',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(3),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(widget.departureTime),
+                          ),
+                        )
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(4),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Text('Операция:',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(3),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(widget.operation),
+                          ),
+                        )
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(4),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Text('Груз:',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(3),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(widget.cargo),
+                          ),
+                        )
+                      ],
+                    ),
+                  ],
+                ),
               ],
             ],
           ),

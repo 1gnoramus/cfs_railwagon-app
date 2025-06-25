@@ -8,7 +8,7 @@ class Wagon {
   final String cargo;
   final String operation;
   final String leftDistance;
-  final String group;
+  late String group;
 
   Wagon({
     required this.number,

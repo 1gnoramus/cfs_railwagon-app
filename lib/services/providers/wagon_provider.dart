@@ -15,6 +15,7 @@ class WagonProvider with ChangeNotifier {
   Future<void> saveWagons(List<Wagon> wagons) async {
     _wagons = wagons;
     await _prefsRepo.saveWagons(_wagons);
+
     notifyListeners();
   }
 
