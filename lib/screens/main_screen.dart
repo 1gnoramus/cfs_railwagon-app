@@ -1,7 +1,6 @@
 import 'package:cfs_railwagon/components/wagon_card.dart';
 import 'package:cfs_railwagon/models/wagon_model.dart';
 import 'package:cfs_railwagon/services/providers/wagon_provider.dart';
-import 'package:cfs_railwagon/services/repositories/shared_prefs.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -93,22 +92,23 @@ class _MainScreenState extends State<MainScreen> {
       final response = await http.get(
         Uri.parse('https://railwagon-server.vercel.app/download-excel'),
       );
-
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+        throw Exception('Ошибка сервера: ${response.statusCode}');
+      }
       if (response.statusCode == 200) {
         wagonProvider = Provider.of<WagonProvider>(context, listen: false);
 
         final excel = Excel.decodeBytes(response.bodyBytes);
+
         final sheet = excel.tables.values.first;
         final rows = sheet.rows;
         await wagonProvider.loadWagons();
-        print(wagonProvider.wagons[0].group);
 
         final newWagons = <Wagon>[];
         for (int i = 1; i < rows.length; i++) {
           final row = rows[i];
           if (row[12]?.value.toString() == '57 platforms (CF&S Kazakhstan)') {
             final number = row[0]?.value.toString() ?? 'Н/Д';
-
             newWagons.add(Wagon(
               number: number,
               from: row[2]?.value.toString() ?? 'Н/Д',
@@ -124,12 +124,27 @@ class _MainScreenState extends State<MainScreen> {
               leftDistance:
                   row[8]?.value.toString() ?? 'Нет дополнительной информации',
               group: wagonProvider.wagons
-                  .firstWhere((w) => w.number == number)
+                  .firstWhere((w) => w.number == number,
+                      orElse: () => Wagon(
+                            number: number,
+                            from: '',
+                            to: '',
+                            lastStation: '',
+                            lastUpdate: '',
+                            departureTime: '',
+                            cargo: '',
+                            operation: '',
+                            leftDistance: '',
+                            group: '',
+                          ))
                   .group,
             ));
           }
         }
-
+        final trackedNumbers = await wagonProvider.loadTrackedWagons();
+        for (var wagon in newWagons) {
+          wagon.isTracked = trackedNumbers.contains(wagon.number);
+        }
         setState(() {
           wagons = newWagons;
           filteredWagons = newWagons;
@@ -143,6 +158,7 @@ class _MainScreenState extends State<MainScreen> {
     } catch (e) {
       setState(() {
         errorMessage = 'Ошибка при загрузке данных: $e';
+        print(errorMessage);
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка: $e')),
@@ -525,6 +541,7 @@ class _MainScreenState extends State<MainScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Text(
                 errorMessage!,
+                //
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
@@ -572,6 +589,19 @@ class _MainScreenState extends State<MainScreen> {
                           operation: wagon.operation,
                           leftDistance: wagon.leftDistance,
                           group: wagon.group,
+                          isTracked: wagon.isTracked,
+                          onTrackChanged: (value) async {
+                            setState(() {
+                              wagon.isTracked = value;
+                            });
+
+                            final provider = context.read<WagonProvider>();
+                            final trackedList = provider.wagons
+                                .where((w) => w.isTracked)
+                                .map((w) => w.number)
+                                .toList();
+                            await provider.saveTrackedWagons(trackedList);
+                          },
                         ),
                       );
                     },

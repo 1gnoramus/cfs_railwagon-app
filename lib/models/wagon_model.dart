@@ -9,6 +9,7 @@ class Wagon {
   final String operation;
   final String leftDistance;
   late String group;
+  bool isTracked;
 
   Wagon({
     required this.number,
@@ -21,20 +22,23 @@ class Wagon {
     required this.operation,
     required this.leftDistance,
     this.group = "Нет группы",
+    this.isTracked = false,
   });
 
   factory Wagon.fromJson(Map<String, dynamic> json) {
     return Wagon(
-        number: json['number'],
-        from: json['from'],
-        to: json['to'],
-        lastStation: json['lastStation'],
-        lastUpdate: json['lastUpdate'],
-        departureTime: json['departureTime'],
-        cargo: json['cargo'],
-        operation: json['operation'],
-        group: json['group'],
-        leftDistance: json['leftDistance']);
+      number: json['number'],
+      from: json['from'],
+      to: json['to'],
+      lastStation: json['lastStation'],
+      lastUpdate: json['lastUpdate'],
+      departureTime: json['departureTime'],
+      cargo: json['cargo'],
+      operation: json['operation'],
+      group: json['group'],
+      leftDistance: json['leftDistance'],
+      isTracked: json['isTracked'] ?? false,
+    );
   }
 
   Map<String, dynamic> toJson() {
@@ -49,6 +53,7 @@ class Wagon {
       'operation': operation,
       'group': group,
       'leftDistance': leftDistance,
+      'isTracked': isTracked,
     };
   }
 }

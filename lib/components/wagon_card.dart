@@ -2,6 +2,7 @@ import 'package:cfs_railwagon/models/wagon_model.dart';
 import 'package:cfs_railwagon/services/providers/wagon_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class WagonCard extends StatefulWidget {
   final String number;
@@ -14,6 +15,8 @@ class WagonCard extends StatefulWidget {
   final String operation;
   final String leftDistance;
   final String group;
+  final bool isTracked;
+  final ValueChanged<bool>? onTrackChanged;
 
   const WagonCard({
     super.key,
@@ -27,6 +30,8 @@ class WagonCard extends StatefulWidget {
     required this.operation,
     required this.leftDistance,
     required this.group,
+    required this.isTracked,
+    this.onTrackChanged,
   });
 
   @override
@@ -275,7 +280,17 @@ class _WagonCardState extends State<WagonCard> {
               ),
 
               const SizedBox(height: 8),
-
+              Row(
+                children: [
+                  Checkbox(
+                    value: widget.isTracked,
+                    onChanged: (value) =>
+                        widget.onTrackChanged?.call(value ?? false),
+                  ),
+                  const Text("Уведомление о прибытии"),
+                ],
+              ),
+              const SizedBox(height: 8),
               // Дополнительная информация
               if (_expanded) ...[
                 const Divider(),
