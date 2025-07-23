@@ -19,13 +19,12 @@ void main() async {
   await requestNotificationPermission();
   await Workmanager().initialize(
     callbackDispatcher,
-    isInDebugMode: true,
+    isInDebugMode: false,
   );
   await Workmanager().registerPeriodicTask(
     'checkWagonStatus',
     taskName,
-    // frequency: const Duration(hours: 3),
-    frequency: const Duration(minutes: 1),
+    frequency: const Duration(hours: 2),
     initialDelay: const Duration(seconds: 5),
     constraints: Constraints(
       networkType: NetworkType.connected,

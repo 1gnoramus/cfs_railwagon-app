@@ -83,8 +83,8 @@ Future<void> showNotification(
     FlutterLocalNotificationsPlugin plugin, String title, String body) async {
   const androidDetails = AndroidNotificationDetails(
     'wagon_channel_id',
-    'Wagon Updates',
-    channelDescription: 'Уведомления о вагонах',
+    'Слежение по вагонам',
+    channelDescription: 'Уведомления об изменении местонахождения вагонов',
     importance: Importance.max,
     priority: Priority.high,
   );

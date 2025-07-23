@@ -136,11 +136,18 @@ class _MainScreenState extends State<MainScreen> {
                             operation: '',
                             leftDistance: '',
                             group: '',
+                            note: '',
                           ))
                   .group,
+              note:
+                  (row[32]?.value?.toString().trim().toLowerCase() == 'null' ||
+                          row[32]?.value == null)
+                      ? 'Нет примечаний'
+                      : row[32]!.value.toString(),
             ));
           }
         }
+
         final trackedNumbers = await wagonProvider.loadTrackedWagons();
         for (var wagon in newWagons) {
           wagon.isTracked = trackedNumbers.contains(wagon.number);
@@ -589,6 +596,7 @@ class _MainScreenState extends State<MainScreen> {
                           operation: wagon.operation,
                           leftDistance: wagon.leftDistance,
                           group: wagon.group,
+                          note: wagon.note,
                           isTracked: wagon.isTracked,
                           onTrackChanged: (value) async {
                             setState(() {

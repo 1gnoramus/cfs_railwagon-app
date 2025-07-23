@@ -10,6 +10,7 @@ class Wagon {
   final String leftDistance;
   late String group;
   bool isTracked;
+  final String note;
 
   Wagon({
     required this.number,
@@ -22,6 +23,7 @@ class Wagon {
     required this.operation,
     required this.leftDistance,
     this.group = "Нет группы",
+    this.note = "Нет примечаний",
     this.isTracked = false,
   });
 
@@ -38,6 +40,7 @@ class Wagon {
       group: json['group'],
       leftDistance: json['leftDistance'],
       isTracked: json['isTracked'] ?? false,
+      note: json['note']?.toString() ?? 'Нет примечаний',
     );
   }
 
@@ -54,6 +57,7 @@ class Wagon {
       'group': group,
       'leftDistance': leftDistance,
       'isTracked': isTracked,
+      'note': note,
     };
   }
 }

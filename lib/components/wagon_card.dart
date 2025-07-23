@@ -14,6 +14,7 @@ class WagonCard extends StatefulWidget {
   final String cargo;
   final String operation;
   final String leftDistance;
+  final String note;
   final String group;
   final bool isTracked;
   final ValueChanged<bool>? onTrackChanged;
@@ -32,6 +33,7 @@ class WagonCard extends StatefulWidget {
     required this.group,
     required this.isTracked,
     this.onTrackChanged,
+    this.note = "Нет примечаний",
   });
 
   @override
@@ -90,17 +92,17 @@ class _WagonCardState extends State<WagonCard> {
 
     if (result != null && result.isNotEmpty) {
       final updatedWagon = Wagon(
-        number: widget.number,
-        from: widget.from,
-        to: widget.to,
-        lastStation: widget.lastStation,
-        lastUpdate: widget.lastUpdate,
-        departureTime: widget.departureTime,
-        cargo: widget.cargo,
-        operation: widget.operation,
-        leftDistance: widget.leftDistance,
-        group: result,
-      );
+          number: widget.number,
+          from: widget.from,
+          to: widget.to,
+          lastStation: widget.lastStation,
+          lastUpdate: widget.lastUpdate,
+          departureTime: widget.departureTime,
+          cargo: widget.cargo,
+          operation: widget.operation,
+          leftDistance: widget.leftDistance,
+          group: result,
+          note: widget.note);
 
       final wagonProvider = context.read<WagonProvider>();
       await wagonProvider.editWagon(updatedWagon);
@@ -129,11 +131,24 @@ class _WagonCardState extends State<WagonCard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('№ ${widget.number}',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF002E5D),
-                          )),
+                  Row(
+                    children: [
+                      if (widget.note != "Нет примечаний")
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4.0),
+                          child:
+                              Icon(Icons.warning, color: Colors.red, size: 18),
+                        ),
+                      Text(
+                        '№ ${widget.number}',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF002E5D),
+                                ),
+                      ),
+                    ],
+                  ),
                   InkWell(
                     onTap: () => editWagon(),
                     child: const Icon(Icons.edit, size: 20),
@@ -345,7 +360,33 @@ class _WagonCardState extends State<WagonCard> {
                           padding: EdgeInsets.all(4),
                           child: const Padding(
                             padding: EdgeInsets.symmetric(vertical: 4),
-                            child: Text('Текущая cnfywbz:',
+                            child: Text('Примечание:',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(3),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(
+                              widget.note,
+                              style: TextStyle(
+                                color: widget.note == 'Нет примечаний'
+                                    ? Colors.black
+                                    : Colors.red,
+                              ),
+                            ),
+                          ),
+                        )
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(4),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Text('Текущая станция:',
                                 style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
@@ -392,6 +433,25 @@ class _WagonCardState extends State<WagonCard> {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Text(widget.departureTime),
+                          ),
+                        )
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(4),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Text('Дата последней операции:',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(3),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Text(widget.lastUpdate),
                           ),
                         )
                       ],
