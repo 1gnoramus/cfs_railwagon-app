@@ -1,4 +1,6 @@
 import 'package:cfs_railwagon/components/wagon_card.dart';
+import 'package:cfs_railwagon/components/wagon_history_screen.dart';
+import 'package:cfs_railwagon/data/wagon_mapping.dart';
 import 'package:cfs_railwagon/models/wagon_model.dart';
 import 'package:cfs_railwagon/services/providers/wagon_provider.dart';
 import 'package:excel/excel.dart';
@@ -598,6 +600,24 @@ class _MainScreenState extends State<MainScreen> {
                           group: wagon.group,
                           note: wagon.note,
                           isTracked: wagon.isTracked,
+                          onViewHistory: (wagonNumber) {
+                            final wagonId = wagonNumberToId[wagonNumber];
+                            if (wagonId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(
+                                        'Не найден wagon_id для вагона $wagonNumber')),
+                              );
+                              return;
+                            }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    WagonHistoryScreen(wagonId: wagonId),
+                              ),
+                            );
+                          },
                           onTrackChanged: (value) async {
                             setState(() {
                               wagon.isTracked = value;

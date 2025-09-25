@@ -18,6 +18,7 @@ class WagonCard extends StatefulWidget {
   final String group;
   final bool isTracked;
   final ValueChanged<bool>? onTrackChanged;
+  final void Function(String wagonNumber)? onViewHistory;
 
   const WagonCard({
     super.key,
@@ -34,6 +35,7 @@ class WagonCard extends StatefulWidget {
     required this.isTracked,
     this.onTrackChanged,
     this.note = "Нет примечаний",
+    this.onViewHistory,
   });
 
   @override
@@ -152,6 +154,15 @@ class _WagonCardState extends State<WagonCard> {
                   InkWell(
                     onTap: () => editWagon(),
                     child: const Icon(Icons.edit, size: 20),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.history, size: 20),
+                    tooltip: 'Посмотреть историю',
+                    onPressed: () {
+                      if (widget.onViewHistory != null) {
+                        widget.onViewHistory!(widget.number);
+                      }
+                    },
                   ),
                 ],
               ),
@@ -294,19 +305,18 @@ class _WagonCardState extends State<WagonCard> {
                 },
               ),
 
+              // const SizedBox(height: 8),
+              // Row(
+              //   children: [
+              //     Checkbox(
+              //       value: widget.isTracked,
+              //       onChanged: (value) =>
+              //           widget.onTrackChanged?.call(value ?? false),
+              //     ),
+              //     const Text("Уведомление о прибытии"),
+              //   ],
+              // ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Checkbox(
-                    value: widget.isTracked,
-                    onChanged: (value) =>
-                        widget.onTrackChanged?.call(value ?? false),
-                  ),
-                  const Text("Уведомление о прибытии"),
-                ],
-              ),
-              const SizedBox(height: 8),
-              // Дополнительная информация
               if (_expanded) ...[
                 const Divider(),
                 Table(

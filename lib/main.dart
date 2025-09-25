@@ -17,10 +17,10 @@ Future<void> requestNotificationPermission() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await requestNotificationPermission();
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: false,
-  );
+  // await Workmanager().initialize(
+  //   // callbackDispatcher,
+  //   // isInDebugMode: false,
+  // );
   await Workmanager().registerPeriodicTask(
     'checkWagonStatus',
     taskName,
