@@ -14,7 +14,8 @@ class WagonHistoryScreen extends StatefulWidget {
 class _WagonHistoryScreenState extends State<WagonHistoryScreen> {
   bool isLoading = true;
   String? error;
-  List<Map<String, dynamic>> journeyCards = []; // Изменили тип данных
+  List<Map<String, dynamic>> journeyCards = [];
+  Map<String, String> wagonInfo = {};
 
   @override
   void initState() {
@@ -27,7 +28,7 @@ class _WagonHistoryScreenState extends State<WagonHistoryScreen> {
       setState(() {
         isLoading = true;
         error = null;
-        journeyCards = []; // Очищаем предыдущие данные
+        journeyCards = [];
       });
 
       final url =
@@ -41,7 +42,25 @@ class _WagonHistoryScreenState extends State<WagonHistoryScreen> {
 
       final excel = Excel.decodeBytes(response.bodyBytes);
       final sheet = excel.tables.values.first;
+// ---- Читаем общую информацию из первых строк ----
+      Map<String, String> info = {};
 
+      for (var row in sheet.rows.take(20)) {
+        // читаем первые 20 строк
+        if (row.length >= 2) {
+          final key = row[0]?.value?.toString().trim() ?? '';
+          final value = row[1]?.value?.toString().trim() ?? '';
+
+          if (key.isNotEmpty && value.isNotEmpty) {
+            info[key] = value;
+          }
+        }
+      }
+
+// Сохраняем данные в состояние
+      setState(() {
+        wagonInfo = info;
+      });
       // Ищем настоящую строку с заголовками таблицы
       int headerRowIndex = -1;
 
@@ -201,8 +220,8 @@ class _WagonHistoryScreenState extends State<WagonHistoryScreen> {
             newJourneyCards.add({
               'from': currentFrom,
               'to': currentTo,
-              'firstDate': firstDate,
-              'lastDate': lastDate,
+              'firstDate': lastDate,
+              'lastDate': firstDate,
               'distance': distance,
             });
 
@@ -244,142 +263,99 @@ class _WagonHistoryScreenState extends State<WagonHistoryScreen> {
   }
 
   Widget buildJourneyCard(Map<String, dynamic> journey) {
+    final from = journey['from'] ?? '';
+    final to = journey['to'] ?? '';
+    final firstDateStr = journey['firstDate'] ?? '';
+    final lastDateStr = journey['lastDate'] ?? '';
+
+    final inTransit =
+        lastDateStr.trim().isEmpty || lastDateStr.trim() == firstDateStr.trim();
+
+    final departureText = _formatDate(lastDateStr);
+    final arrivalText = inTransit ? '—' : _formatDate(firstDateStr);
+
     return Card(
-      margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      elevation: 3,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      elevation: 1.5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      color: Colors.grey[50],
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(10),
         child: Column(
           children: [
-            // Верхняя часть - станции и расстояние
+            // Верхняя строка: станции
+            Row(
+              children: [
+                Icon(Icons.circle, size: 10, color: Colors.blue[800]),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    from,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(Icons.arrow_forward_ios_rounded,
+                    size: 14, color: Colors.grey[600]),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    to,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(Icons.circle, size: 10, color: Colors.green[700]),
+              ],
+            ),
+
+            const SizedBox(height: 6),
+            const Divider(height: 1.5, color: Color(0xFFE0E0E0)),
+            const SizedBox(height: 6),
+
+            // Нижняя строка: даты и статус
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Станция отправления с красным маркером
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              journey['from'],
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Отправлен: ${_formatDate(journey['firstDate'])}',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
+                Text(
+                  'Отпр: $departureText',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                 ),
-
-                // Расстояние по центру
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${journey['distance']} км',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue[700],
-                    ),
-                  ),
-                ),
-
-                // Станция назначения с зеленым маркером
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              journey['to'],
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                              textAlign: TextAlign.right,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Прибыл: ${_formatDate(journey['lastDate'])}',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                        textAlign: TextAlign.right,
-                      ),
-                    ],
+                Text(
+                  inTransit ? 'В пути' : 'Прибыл: $arrivalText',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: inTransit
+                        ? Colors.green[700]
+                        : Colors.orangeAccent[700],
+                    fontWeight: inTransit ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
               ],
             ),
 
-            // Разделительная линия
-            SizedBox(height: 12),
-            Divider(height: 1, color: Colors.grey[300]),
-            SizedBox(height: 8),
-
-            // Информация о времени в пути
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Время в пути',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                inTransit
+                    ? 'Вагон в пути'
+                    : _calculateDurationDays(firstDateStr, lastDateStr),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: inTransit ? Colors.green[800] : Colors.blueGrey[700],
+                  fontWeight: FontWeight.w600,
                 ),
-                Text(
-                  _calculateDuration(journey['firstDate'], journey['lastDate']),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange[700],
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),
@@ -387,17 +363,176 @@ class _WagonHistoryScreenState extends State<WagonHistoryScreen> {
     );
   }
 
-  String _formatDate(String dateString) {
+  /// Вычисляет разницу в днях и возвращает строку вида "N дн." или "Менее 1 дня"
+  String _calculateDurationDays(String startDate, String endDate) {
+    final start = _parseDate(startDate);
+    final end = _parseDate(endDate);
+
+    if (start == null || end == null) return 'Неизвестно';
+
+    final diff = end.difference(start);
+    final days = diff.inDays;
+
+    if (days <= 0) return 'Менее 1 дня';
+    if (days == 1) return '1 дн.';
+    return '$days дн.';
+  }
+
+  /// Разбор даты: поддерживает "dd.mm.yyyy, hh:mm" и "dd.mm.yyyy"
+  DateTime? _parseDate(String dateString) {
     try {
-      // Пытаемся разобрать дату в формате "dd.mm.yyyy, hh:mm"
-      final parts = dateString.split(', ');
-      if (parts.length == 2) {
-        return parts[0]; // Возвращаем только дату без времени
+      final s = dateString.trim();
+      if (s.isEmpty) return null;
+
+      // Ищем форму "dd.mm.yyyy, hh:mm" или "dd.mm.yyyy, hh:mm:ss"
+      final regexp = RegExp(
+          r'(\d{1,2})\.(\d{1,2})\.(\d{4})(?:,\s*(\d{1,2}):(\d{2})(?::(\d{2}))?)?');
+      final m = regexp.firstMatch(s);
+      if (m != null) {
+        final day = int.parse(m.group(1)!);
+        final month = int.parse(m.group(2)!);
+        final year = int.parse(m.group(3)!);
+        final hour = m.group(4) != null ? int.parse(m.group(4)!) : 0;
+        final minute = m.group(5) != null ? int.parse(m.group(5)!) : 0;
+        final second = m.group(6) != null ? int.parse(m.group(6)!) : 0;
+        return DateTime(year, month, day, hour, minute, second);
       }
-      return dateString.length > 10 ? dateString.substring(0, 10) : dateString;
+
+      // Попытка распарсить через DateTime.parse (на случай ISO)
+      return DateTime.tryParse(s);
     } catch (e) {
-      return dateString;
+      return null;
     }
+  }
+
+  /// Немного упрощённый форматтер даты для UI — возвращает "dd.mm.yyyy"
+  String _formatDate(String dateString) {
+    final dt = _parseDate(dateString);
+    if (dt == null) return dateString;
+    final dd = dt.day.toString().padLeft(2, '0');
+    final mm = dt.month.toString().padLeft(2, '0');
+    final yyyy = dt.year.toString();
+    return '$dd.$mm.$yyyy';
+  }
+
+  Widget buildWagonInfo() {
+    if (wagonInfo.isEmpty) return SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Icon(Icons.train, color: Colors.blue[700], size: 28),
+              const SizedBox(width: 8),
+              Text(
+                'Информация о вагоне',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue[900],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Card(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          elevation: 3,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildInfoRow(
+                  Icons.confirmation_number_outlined,
+                  'Номер вагона',
+                  wagonInfo['Номер вагона / контейнера:'],
+                ),
+                const Divider(height: 12),
+                _buildInfoRow(
+                  Icons.location_on_outlined,
+                  'Станция отправления',
+                  wagonInfo['Станция отправления:'],
+                ),
+                _buildInfoRow(
+                  Icons.flag_outlined,
+                  'Станция назначения',
+                  wagonInfo['Станция назначения:'],
+                ),
+                _buildInfoRow(
+                  Icons.location_history_outlined,
+                  'Последняя операция',
+                  wagonInfo['Станция последней операции:'],
+                ),
+                _buildInfoRow(
+                  Icons.route_outlined,
+                  'Расстояние до назначения',
+                  '${wagonInfo['Примерное расстояние до станции назначения:'] ?? '—'} км',
+                ),
+                _buildInfoRow(
+                  Icons.groups_2_outlined,
+                  'Группа',
+                  wagonInfo['Группа:'],
+                ),
+                _buildInfoRow(
+                  Icons.calendar_today_outlined,
+                  'Дата добавления',
+                  wagonInfo['Дата добавления на сервер:'],
+                ),
+                _buildInfoRow(
+                  Icons.check_circle_outline,
+                  'Состояние',
+                  wagonInfo['Состояние:'],
+                  valueColor:
+                      wagonInfo['Состояние:']?.contains('слежении') == true
+                          ? Colors.green[700]
+                          : Colors.red[600],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String? value,
+      {Color? valueColor}) {
+    if (value == null || value.isEmpty) return SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.blue[700], size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 13, color: Colors.black54, height: 1.2)),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: valueColor ?? Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _calculateDuration(String startDate, String endDate) {
@@ -422,28 +557,13 @@ class _WagonHistoryScreenState extends State<WagonHistoryScreen> {
     }
   }
 
-  DateTime? _parseDate(String dateString) {
-    try {
-      // Простая обработка для формата "dd.mm.yyyy, hh:mm"
-      final parts = dateString.split(', ')[0].split('.');
-      if (parts.length == 3) {
-        final day = int.parse(parts[0]);
-        final month = int.parse(parts[1]);
-        final year = int.parse(parts[2]);
-        return DateTime(year, month, day);
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
   Widget buildContent() {
     if (journeyCards.isEmpty) {
-      return Center(
+      return SingleChildScrollView(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            buildWagonInfo(),
+            SizedBox(height: 40),
             Icon(Icons.train, size: 64, color: Colors.grey[400]),
             SizedBox(height: 16),
             Text(
@@ -456,10 +576,30 @@ class _WagonHistoryScreenState extends State<WagonHistoryScreen> {
     }
 
     return ListView.builder(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      itemCount: journeyCards.length,
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      itemCount: journeyCards.length + 2,
       itemBuilder: (context, index) {
-        return buildJourneyCard(journeyCards[index]);
+        if (index == 0) return buildWagonInfo();
+        if (index == 1) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                Icon(Icons.timeline, color: Colors.blue[700], size: 26),
+                const SizedBox(width: 8),
+                Text(
+                  'История перемещений',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[900],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return buildJourneyCard(journeyCards[index - 2]);
       },
     );
   }
