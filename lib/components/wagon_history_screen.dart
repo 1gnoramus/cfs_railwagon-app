@@ -220,8 +220,8 @@ class _WagonHistoryScreenState extends State<WagonHistoryScreen> {
             newJourneyCards.add({
               'from': currentFrom,
               'to': currentTo,
-              'firstDate': lastDate,
-              'lastDate': firstDate,
+              'firstDate': firstDate,
+              'lastDate': lastDate,
               'distance': distance,
             });
 
@@ -365,8 +365,8 @@ class _WagonHistoryScreenState extends State<WagonHistoryScreen> {
 
   /// Вычисляет разницу в днях и возвращает строку вида "N дн." или "Менее 1 дня"
   String _calculateDurationDays(String startDate, String endDate) {
-    final start = _parseDate(startDate);
-    final end = _parseDate(endDate);
+    final end = _parseDate(startDate);
+    final start = _parseDate(endDate);
 
     if (start == null || end == null) return 'Неизвестно';
 
