@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:cfs_railwagon/components/wagon_card.dart';
 import 'package:cfs_railwagon/components/wagon_history_screen.dart';
 import 'package:cfs_railwagon/data/wagon_mapping.dart';
@@ -6,7 +9,12 @@ import 'package:cfs_railwagon/services/providers/wagon_provider.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:share_plus/share_plus.dart';
+
+enum DistanceSortState { none, descending, ascending }
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -21,7 +29,8 @@ class _MainScreenState extends State<MainScreen> {
   bool isLoading = false;
   String? errorMessage;
   late WagonProvider wagonProvider;
-
+// Добавь к остальным контроллерам в начало класса
+  final ScreenshotController _screenshotController = ScreenshotController();
   // Контроллеры для поиска и фильтров
   final TextEditingController _searchController = TextEditingController();
   String? _selectedFromStation;
@@ -29,7 +38,7 @@ class _MainScreenState extends State<MainScreen> {
   String? _selectedCurrentStation;
   String? _selectedGroup;
   bool _isSearchFocused = false;
-
+  DistanceSortState _distanceSort = DistanceSortState.none;
   @override
   void initState() {
     super.initState();
@@ -52,13 +61,14 @@ class _MainScreenState extends State<MainScreen> {
       _selectedGroup = null;
       _searchController.clear();
       _isSearchFocused = false;
+      _distanceSort = DistanceSortState.none; // Сбрасываем в исходное
     });
     _applyFilters();
   }
 
   void _applyFilters() {
     setState(() {
-      filteredWagons = wagons.where((wagon) {
+      List<Wagon> tempWagons = wagons.where((wagon) {
         final matchesSearch = _searchController.text.isEmpty ||
             wagon.number
                 .toLowerCase()
@@ -81,7 +91,47 @@ class _MainScreenState extends State<MainScreen> {
             matchesCurrent &&
             matchesGroup;
       }).toList();
+
+      // Сортировка с учетом реального 0 км и пустых строк (-1)
+      if (_distanceSort != DistanceSortState.none) {
+        tempWagons.sort((a, b) {
+          int distanceA = _parseDistance(a.leftDistance);
+          int distanceB = _parseDistance(b.leftDistance);
+
+          // Если данных действительно нет (-1), всегда кидаем их в самый дефолтный низ списка
+          if (distanceA == -1 && distanceB != -1) return 1;
+          if (distanceB == -1 && distanceA != -1) return -1;
+
+          if (_distanceSort == DistanceSortState.descending) {
+            return distanceB.compareTo(
+                distanceA); // От большего к меньшему (0 км будет внизу)
+          } else {
+            return distanceA.compareTo(
+                distanceB); // От меньшего к большему (0 км будет на самом верху!)
+          }
+        });
+      }
+
+      filteredWagons = tempWagons;
     });
+  }
+
+  // Обновленный парсер: возвращает -1 для пустых строк и реальное число для цифр
+  int _parseDistance(String distanceStr) {
+    try {
+      // Очищаем строку от букв, оставляя только цифры
+      final String cleanStr = distanceStr.replaceAll(RegExp(r'[^0-9]'), '');
+
+      // Если в исходной строке вообще не было цифр (например "—" или "Н/Д")
+      if (cleanStr.isEmpty) {
+        // Проверяем, может там реально был написан ноль текстом, если нет — это пустая строка
+        return distanceStr.contains('0') ? 0 : -1;
+      }
+
+      return int.parse(cleanStr);
+    } catch (_) {
+      return -1; // Ошибка парсинга — в самый низ
+    }
   }
 
   Future<void> downloadAndParseExcel() async {
@@ -200,7 +250,7 @@ class _MainScreenState extends State<MainScreen> {
             borderRadius: BorderRadius.circular(8.0),
           ),
           filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceVariant,
+          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         ),
         value: value,
         items: [
@@ -223,7 +273,7 @@ class _MainScreenState extends State<MainScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             );
-          }).toList(),
+          }),
         ],
         onChanged: (value) {
           onChanged(value);
@@ -237,14 +287,14 @@ class _MainScreenState extends State<MainScreen> {
     final fromStations = wagons.map((w) => w.from).toSet().toList();
     final toStations = wagons.map((w) => w.to).toSet().toList();
     final currentStations = wagons.map((w) => w.lastStation).toSet().toList();
-    final groups =
-        wagons.map((w) => w.group).where((g) => g != null).toSet().toList();
+    // final groups =
+    //     wagons.map((w) => w.group).where((g) => g != null).toSet().toList();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
       child: Column(
         children: [
-          // Первая строка - поиск и 2 фильтра
+          // Первая строка - Поиск, Станция и Сортировка
           Row(
             children: [
               _buildSearchField(),
@@ -257,10 +307,47 @@ class _MainScreenState extends State<MainScreen> {
                   _applyFilters();
                 },
               ),
+              const Spacer(),
+
+              // ПЕРЕНЕСЛИ СЮДА: Кнопка сортировки по километражу
+              // Обновленная кнопка циклической сортировки
+              IconButton(
+                icon: Icon(
+                  _distanceSort == DistanceSortState.none
+                      ? Icons.sort
+                      : _distanceSort == DistanceSortState.descending
+                          ? Icons
+                              .arrow_downward_rounded // Стрелка вниз (убывание)
+                          : Icons
+                              .arrow_upward_rounded, // Стрелка вверх (возрастание)
+                  color: _distanceSort != DistanceSortState.none
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.grey[700],
+                  size: 20,
+                ),
+                tooltip: _distanceSort == DistanceSortState.none
+                    ? 'Без сортировки'
+                    : _distanceSort == DistanceSortState.descending
+                        ? 'По убыванию км'
+                        : 'По возрастанию км',
+                onPressed: () {
+                  setState(() {
+                    // Циклическое переключение по кругу
+                    if (_distanceSort == DistanceSortState.none) {
+                      _distanceSort = DistanceSortState.descending;
+                    } else if (_distanceSort == DistanceSortState.descending) {
+                      _distanceSort = DistanceSortState.ascending;
+                    } else {
+                      _distanceSort = DistanceSortState.none;
+                    }
+                  });
+                  _applyFilters();
+                },
+              ),
             ],
           ),
 
-          // Вторая строка - оставшиеся фильтры
+          // Вторая строка - Назначение, Отправление и Сброс
           Row(
             children: [
               _buildCompactFilterDropdown(
@@ -282,6 +369,8 @@ class _MainScreenState extends State<MainScreen> {
                 },
               ),
               const Spacer(),
+
+              // Кнопка сброса фильтров остается на месте
               IconButton(
                 icon: const Icon(Icons.filter_alt_off, size: 20),
                 tooltip: 'Сбросить фильтры',
@@ -315,7 +404,7 @@ class _MainScreenState extends State<MainScreen> {
             borderRadius: BorderRadius.circular(8.0),
           ),
           filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceVariant,
+          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         ),
         value: value,
         items: [
@@ -338,7 +427,7 @@ class _MainScreenState extends State<MainScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             );
-          }).toList(),
+          }),
         ],
         onChanged: onChanged,
       ),
@@ -366,7 +455,7 @@ class _MainScreenState extends State<MainScreen> {
               borderRadius: BorderRadius.circular(8.0),
             ),
             filled: true,
-            fillColor: Theme.of(context).colorScheme.surfaceVariant,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
           ),
         ),
       ),
@@ -375,7 +464,7 @@ class _MainScreenState extends State<MainScreen> {
 
   void _showAddWagonsToGroupDialog(BuildContext context) {
     final List<Wagon> availableWagons =
-        wagons.where((w) => (w.group ?? '') != _selectedGroup).toList();
+        wagons.where((w) => (w.group) != _selectedGroup).toList();
 
     final Map<String, bool> selected = {
       for (var w in availableWagons) w.number: false,
@@ -448,10 +537,131 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Widget _buildReportTableForImage() {
+    return Container(
+      color: Colors.white, // Белый фон для фотографии
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Дата генерации: ${DateTime.now().toString().substring(0, 16)}",
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 15),
+          Table(
+            border: TableBorder.all(color: Colors.grey[400]!, width: 1),
+            columnWidths: const {
+              0: FlexColumnWidth(1.2), // Номер
+              1: FlexColumnWidth(1.5), // Отправление
+              2: FlexColumnWidth(1.5), // Назначение
+              3: FlexColumnWidth(1.4), // Дата отпр
+              4: FlexColumnWidth(1.4), // Дата опер
+              5: FlexColumnWidth(1.3), // Операция
+              6: FlexColumnWidth(1.0), // Расстояние
+            },
+            children: [
+              // Заголовок таблицы
+              TableRow(
+                decoration: BoxDecoration(color: Colors.grey[200]),
+                children: const [
+                  _Cell('Номер вагона', isHeader: true),
+                  _Cell('Станция отпр.', isHeader: true),
+                  _Cell('Станция назн.', isHeader: true),
+                  _Cell('Дата отпр.', isHeader: true),
+                  _Cell('Посл опер.', isHeader: true),
+                  _Cell('Операция', isHeader: true),
+                  _Cell('Расстояние', isHeader: true),
+                ],
+              ),
+              // Строки с данными из filteredWagons
+              ...filteredWagons.map((wagon) {
+                // ЛОГИКА ОБРЕЗКИ: Берем текст операции, убираем лишние пробелы по краям
+                final operationRaw = wagon.operation.trim();
+                // Делим строку по пробелам и берем самый первый элемент
+                final shortOperation = operationRaw.isNotEmpty
+                    ? operationRaw.split(' ').first
+                    : '—';
+                return TableRow(
+                  children: [
+                    _Cell(wagon.number),
+                    _Cell(wagon.from),
+                    _Cell(wagon.to),
+                    _Cell(wagon.departureTime),
+                    _Cell(wagon.lastUpdate),
+                    _Cell(shortOperation),
+                    _Cell(wagon.leftDistance),
+                  ],
+                );
+              }),
+            ],
+          ),
+          const SizedBox(height: 15),
+          Text(
+            "Всего вагонов в отчете: ${filteredWagons.length}",
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _generateAndShareReport() async {
+    if (filteredWagons.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Список пуст, нечего экспортировать')),
+      );
+      return;
+    }
+
+    try {
+      // Показываем лоадер, пока идет рендеринг тяжелой картинки
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Генерируем изображение из виджета, который мы создали на Шаге 2
+      final Uint8List? imageBytes =
+          await _screenshotController.captureFromWidget(
+        Material(
+          child: _buildReportTableForImage(),
+        ),
+        delay: const Duration(milliseconds: 100),
+        // Задаем фиксированную ширину, чтобы таблица не сжималась как на мобилке
+        context: context,
+      );
+
+      // Закрываем лоадер
+      Navigator.pop(context);
+
+      if (imageBytes != null) {
+        // Получаем временную директорию устройства
+        final directory = await getTemporaryDirectory();
+        final imagePath = await File(
+                '${directory.path}/wagon_report_${DateTime.now().millisecondsSinceEpoch}.png')
+            .create();
+        await imagePath.writeAsBytes(imageBytes);
+
+        // Открываем нативное окно "Поделиться файлом"
+        await Share.shareXFiles(
+          [XFile(imagePath.path)],
+          text: 'Отчет по отфильтрованным вагонам',
+        );
+      }
+    } catch (e) {
+      Navigator.pop(context); // На случай ошибки закрываем лоадер
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка генерации фото: $e')),
+      );
+    }
+  }
+
   List<Widget> _buildGroupItems() {
     final groupSet = wagons.map((w) => w.group).toSet();
-    final groups =
-        groupSet.where((g) => g != null && g.trim().isNotEmpty).toList();
+    final groups = groupSet.where((g) => g.trim().isNotEmpty).toList();
 
     final List<Widget> groupTiles = groups.map((group) {
       return ListTile(
@@ -514,6 +724,12 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ),
         actions: [
+          // ДОБАВЛЕНО: Кнопка генерации фото-отчета
+          IconButton(
+            icon: const Icon(Icons.camera_alt_outlined),
+            onPressed: _generateAndShareReport,
+            tooltip: 'Сделать фото отчета',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: downloadAndParseExcel,
@@ -636,6 +852,27 @@ class _MainScreenState extends State<MainScreen> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _Cell extends StatelessWidget {
+  final String text;
+  final bool isHeader;
+  const _Cell(this.text, {this.isHeader = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(6.0),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: isHeader ? 9 : 8,
+          fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+        ),
+        textAlign: TextAlign.center,
       ),
     );
   }

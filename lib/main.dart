@@ -1,11 +1,8 @@
 import 'package:cfs_railwagon/constants/theme_data.dart';
 import 'package:cfs_railwagon/services/providers/wagon_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:workmanager/workmanager.dart';
 import 'screens/welcome_screen.dart';
-import 'services/background_task.dart';
 
 // Future<void> requestNotificationPermission() async {
 //   final status = await Permission.notification.status;

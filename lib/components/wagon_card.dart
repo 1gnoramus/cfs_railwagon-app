@@ -327,7 +327,7 @@ class _WagonCardState extends State<WagonCard> {
                 ? Colors.black
                 : Colors.redAccent),
         _buildRow('Текущая станция:', widget.lastStation),
-        _buildRow('Осталось, км:', '${widget.leftDistance}'),
+        _buildRow('Осталось, км:', widget.leftDistance),
         _buildRow('Дата выхода:', widget.departureTime),
         _buildRow('Дата последней операции:', widget.lastUpdate),
         _buildRow('Операция:', widget.operation),
